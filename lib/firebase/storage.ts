@@ -65,3 +65,22 @@ export async function deleteImage(imageUrl: string): Promise<void> {
     // No lanzar error aquí para no bloquear otras operaciones
   }
 }
+
+export async function getDownloadUrlForFile(filePath: string): Promise<string | null> {
+  if (!isFirebaseConfigured() || !storage) {
+    console.error("Firebase no configurado. No se puede obtener la URL del archivo.")
+    return null;
+  }
+
+  try {
+    const fileRef = ref(storage, filePath);
+    const downloadURL = await getDownloadURL(fileRef);
+    return downloadURL;
+  } catch (error: any) {
+    console.error(`Error al obtener URL para ${filePath}:`, error);
+    if (error.code === 'storage/object-not-found') {
+      console.warn(`El archivo en la ruta "${filePath}" no se encontró en Firebase Storage.`);
+    }
+    return null;
+  }
+} 

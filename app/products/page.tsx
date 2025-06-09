@@ -3,16 +3,21 @@
 import { useState, useEffect } from "react"
 import ProductCard from "@/components/ProductCard"
 import { getProducts } from "@/lib/firebase/products"
+import { getDownloadUrlForFile } from "@/lib/firebase/storage"
 import type { Product } from "@/lib/types"
 import Link from "next/link"
+import { Button } from "@/components/ui/button"
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [pdfCatalogUrl, setPdfCatalogUrl] = useState<string | null>(null)
+  const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
     loadProducts()
+    loadPdfCatalogUrl()
   }, [])
 
   const loadProducts = async () => {
@@ -27,6 +32,47 @@ export default function ProductsPage() {
       setLoading(false)
     }
   }
+
+  const loadPdfCatalogUrl = async () => {
+    try {
+      const url = await getDownloadUrlForFile("catalogs/santis_catalog.pdf")
+      setPdfCatalogUrl(url)
+    } catch (err) {
+      console.error("Error loading PDF catalog URL:", err)
+      setPdfCatalogUrl(null)
+    }
+  }
+
+  const handleDownloadPdf = async () => {
+    if (!pdfCatalogUrl) {
+      console.error("PDF catalog URL is not available.");
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      const response = await fetch(pdfCatalogUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const blob = await response.blob();
+
+      // Create a temporary URL for the blob
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Catálogo de Productos Santi\'s.pdf'; // Filename for the download
+      document.body.appendChild(a);
+      a.click(); // Programmatically click the link to trigger download
+      a.remove(); // Remove the element after clicking
+      window.URL.revokeObjectURL(url); // Clean up the temporary URL
+    } catch (err) {
+      console.error("Error during PDF download:", err);
+      setError("Error al descargar el catálogo. Por favor, inténtalo de nuevo.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50">
@@ -58,6 +104,18 @@ export default function ProductsPage() {
           <p className="text-xl text-orange-700 max-w-2xl mx-auto">
             Explora nuestra colección cuidadosamente seleccionada de materiales educativos inspirados en Montessori.
           </p>
+          {pdfCatalogUrl && (
+            <div className="mt-6">
+              <Button
+                variant="outline"
+                className="border-orange-600 text-orange-600 hover:bg-orange-50"
+                onClick={handleDownloadPdf}
+                disabled={isDownloading}
+              >
+                {isDownloading ? "Descargando..." : "¡Descarga nuestro catálogo!"}
+              </Button>
+            </div>
+          )}
         </div>
 
         {loading ? (
